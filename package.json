@@ -1,0 +1,24 @@
+{
+  "name": "fullstack-task-manager",
+  "version": "1.0.0",
+  "description": "Full stack task manager built using React, Node.js and Express",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swayamx07/fullstack-task-manager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Swayamx07/fullstack-task-manager/issues"
+  },
+  "homepage": "https://github.com/Swayamx07/fullstack-task-manager#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
