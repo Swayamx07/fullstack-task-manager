@@ -8,38 +8,43 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json()); 
+app.use(express.json());
 
 mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB connected"))
-    .catch((err) => console.error(err));
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error(err));
 
 let tasks = [];
 
 app.post("/tasks", async (req, res) => {
-    try {
-        const { title } = req.body;
+  try {
+    const { title, description } = req.body;
 
-        if (!title) {
-            return res.status(400).json({ message: "Title is required" });
-        }
 
-        const newTask = await Task.create({ title });
-
-        res.status(201).json(newTask);
-    } catch (error) {
-        res.status(500).json({ message: "Server Error" })
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
     }
+
+    const newTask = await Task.create({
+      title,
+      description,
+    });
+
+
+    res.status(201).json(newTask);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error" })
+  }
 });
 
 app.get("/tasks", async (req, res) => {
-    try{
-        const tasks = await Task.find().sort({ createdAt : -1});
-        res.json(tasks);
-    } catch (error) {
-        res.status(500).json({message: "Server error"});
-    }
+  try {
+    const tasks = await Task.find().sort({ createdAt: -1 });
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
 })
 
 app.put("/tasks/:id", async (req, res) => {
@@ -86,9 +91,9 @@ app.delete("/tasks/:id", async (req, res) => {
 
 
 app.get("/health", (req, res) => {
-    res.send("Server running");
+  res.send("Server running");
 });
 
 app.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
+  console.log(`Server started on port ${PORT}`);
 });
