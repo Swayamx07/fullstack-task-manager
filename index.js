@@ -15,6 +15,10 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error(err));
 
+app.get("/health", (req, res) => {
+  res.send("Server running");
+});
+
 let tasks = [];
 
 app.post("/tasks", async (req, res) => {
