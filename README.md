@@ -118,7 +118,7 @@ PORT=5000
 4. Run the server:
    node index.js
 5. Server runs at:
-   http://localhost:5000
+   ${API_BASE_URL}
 
 ---
 
