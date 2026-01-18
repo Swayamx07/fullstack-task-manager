@@ -37,14 +37,13 @@ app.post("/tasks", async (req, res) => {
   try {
     const { title, description } = req.body;
 
-
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
 
     const newTask = await Task.create({
-      title,
-      description,
+      title: title.trim(),
+      description: description?.trim() || "",
     });
 
 
