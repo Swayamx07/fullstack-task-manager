@@ -20,6 +20,15 @@ app.get("/health", (req, res) => {
   res.send("Server running");
 });
 
+app.get("/", (req, res) => {
+  res.send("API is live");
+});
+
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server started on port ${PORT}`);
+});
+
 let tasks = [];
 
 app.post("/tasks", async (req, res) => {
