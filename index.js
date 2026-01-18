@@ -1,3 +1,5 @@
+console.log("INDEX.JS IS RUNNING");
+
 const cors = require("cors");
 const mongoose = require("mongoose");
 require("dotenv").config();
