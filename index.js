@@ -1,114 +1,160 @@
-console.log("INDEX.JS IS RUNNING");
-
-const cors = require("cors");
-const mongoose = require("mongoose");
-require("dotenv").config();
-const Task = require("./models/Task")
 const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
 
+const User = require("./models/User");
+const Task = require("./models/Task");
+const auth = require("./middleware/auth");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ================= Middleware =================
 app.use(cors());
 app.use(express.json());
 
+// ================= Database =================
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error(err));
 
-app.get("/health", (req, res) => {
-  res.send("Server running");
-});
-
+// ================= Health Routes =================
 app.get("/", (req, res) => {
   res.send("API is live");
 });
 
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server started on port ${PORT}`);
-});
-
-let tasks = [];
-
-app.post("/tasks", async (req, res) => {
-  try {
-    const { title, description } = req.body;
-
-    if (!title) {
-      return res.status(400).json({ message: "Title is required" });
-    }
-
-    const newTask = await Task.create({
-      title: title.trim(),
-      description: description?.trim() || "",
-    });
-
-
-    res.status(201).json(newTask);
-  } catch (error) {
-    res.status(500).json({ message: "Server Error" })
-  }
-});
-
-app.get("/tasks", async (req, res) => {
-  try {
-    const tasks = await Task.find().sort({ createdAt: -1 });
-    res.json(tasks);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-})
-
-app.put("/tasks/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!req.body) {
-      return res.status(400).json({ message: "Request body missing" });
-    }
-
-    const updatedTask = await Task.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedTask) {
-      return res.status(404).json({ message: "Task not found" });
-    }
-
-    res.json(updatedTask);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-app.delete("/tasks/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const deletedTask = await Task.findByIdAndDelete(id);
-
-    if (!deletedTask) {
-      return res.status(404).json({ message: "Task not found" });
-    }
-
-    res.json(deletedTask);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-
 app.get("/health", (req, res) => {
   res.send("Server running");
 });
 
-app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+// ================= AUTH ROUTES =================
+
+// Register
+app.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ message: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await User.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
+
+    res.json({ message: "User registered successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Login
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(400).json({ message: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token });
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= TASK ROUTES (PROTECTED) =================
+
+// Create Task
+app.post("/tasks", auth, async (req, res) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!title)
+      return res.status(400).json({ message: "Title is required" });
+
+    const task = await Task.create({
+      title: title.trim(),
+      description: description?.trim() || "",
+      user: req.user.userId, // important
+    });
+
+    res.status(201).json(task);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get User Tasks
+app.get("/tasks", auth, async (req, res) => {
+  try {
+    const tasks = await Task.find({
+      user: req.user.userId,
+    }).sort({ createdAt: -1 });
+
+    res.json(tasks);
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update Task (User Specific)
+app.put("/tasks/:id", auth, async (req, res) => {
+  try {
+    const updatedTask = await Task.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.user.userId,
+      },
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedTask)
+      return res.status(404).json({ message: "Task not found" });
+
+    res.json(updatedTask);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete Task (User Specific)
+app.delete("/tasks/:id", auth, async (req, res) => {
+  try {
+    const deletedTask = await Task.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user.userId,
+    });
+
+    if (!deletedTask)
+      return res.status(404).json({ message: "Task not found" });
+
+    res.json(deletedTask);
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ================= START SERVER =================
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
