@@ -17,12 +17,12 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://YOUR-VERCEL-URL.vercel.app",
+      "https://task-manager-frontend-psi-umber.vercel.app",
     ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
-app.use(express.json());
 
 //  Database 
 mongoose
