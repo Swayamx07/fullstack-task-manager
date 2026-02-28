@@ -12,17 +12,25 @@ const auth = require("./middleware/auth");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ================= Middleware =================
-app.use(cors());
+//  Middleware 
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://YOUR-VERCEL-URL.vercel.app",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
-// ================= Database =================
+//  Database 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error(err));
 
-// ================= Health Routes =================
+//  Health Routes 
 app.get("/", (req, res) => {
   res.send("API is live");
 });
@@ -31,7 +39,7 @@ app.get("/health", (req, res) => {
   res.send("Server running");
 });
 
-// ================= AUTH ROUTES =================
+//  AUTH ROUTES 
 
 // Register
 app.post("/register", async (req, res) => {
@@ -81,7 +89,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// ================= TASK ROUTES (PROTECTED) =================
+//  TASK ROUTES (PROTECTED) 
 
 // Create Task
 app.post("/tasks", auth, async (req, res) => {
@@ -94,7 +102,7 @@ app.post("/tasks", auth, async (req, res) => {
     const task = await Task.create({
       title: title.trim(),
       description: description?.trim() || "",
-      user: req.user.userId, // important
+      user: req.user.userId,
     });
 
     res.status(201).json(task);
@@ -154,7 +162,7 @@ app.delete("/tasks/:id", auth, async (req, res) => {
   }
 });
 
-// ================= START SERVER =================
+//  START SERVER 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
