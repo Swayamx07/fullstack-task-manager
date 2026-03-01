@@ -1,98 +1,258 @@
-# Task Manager Backend
+# 🚀 TaskEasy — Task Manager Backend API
 
-This is the backend service for the Task Manager application.
-It provides a RESTful API to manage tasks with full CRUD functionality and persistent storage using MongoDB.
+Backend service for **TaskEasy**, a production-ready task management application.
+This API provides secure authentication and scalable task management with filtering, sorting, and pagination support.
+
+Deployed using **Render** with **MongoDB Atlas** as the database.
 
 ---
 
-## 🚀 Features
+## 🌐 Live API
 
-- Create, read, update, and delete tasks (CRUD)
-- Persistent storage with MongoDB
-- Task metadata support:
-  - Title
-  - Description
-  - Completion status
-  - Created and updated timestamps
-- Clean RESTful API design
-- Environment-based configuration using `.env`
-- CORS enabled for frontend integration
+Base URL:
+
+```
+https://fullstack-task-manager-tq89.onrender.com
+```
+
+Health Check:
+
+```
+GET /health
+```
+
+---
+
+## ✨ Features
+
+### 🔐 Authentication
+
+* JWT-based authentication
+* Secure login & registration
+* Protected routes using middleware
+* User-specific task isolation
+
+### ✅ Task Management
+
+* Create, read, update, delete tasks (CRUD)
+* Status workflow system:
+
+  * `todo`
+  * `in-progress`
+  * `completed`
+* Priority levels:
+
+  * low / medium / high
+* Due date support
+* User-owned tasks only
+
+### ⚡ Advanced API Capabilities
+
+* Server-side pagination
+* Dynamic filtering
+* Search functionality
+* Sorting support
+* Query validation
+* RESTful API architecture
+
+### 🛡️ Production Readiness
+
+* MongoDB Atlas cloud database
+* Environment-based configuration
+* CORS configuration for deployed frontend
+* Centralized error handling
+* Secure password hashing (bcrypt)
+* Token-based authorization
 
 ---
 
 ## 🛠️ Tech Stack
 
-- Node.js
-- Express.js
-- MongoDB
-- Mongoose
-- dotenv
-- CORS
+* **Node.js**
+* **Express.js**
+* **MongoDB Atlas**
+* **Mongoose**
+* **JWT (jsonwebtoken)**
+* **bcryptjs**
+* **dotenv**
+* **CORS**
 
 ---
 
 ## 📂 Project Structure
 
+```
 backend/
+│
 ├── models/
+│   ├── User.js
 │   └── Task.js
+│
+├── middleware/
+│   └── auth.js
+│
 ├── index.js
 ├── package.json
-├── .gitignore
 └── README.md
+```
 
 ---
 
 ## 📌 API Endpoints
 
-### Health Check
-GET /health  
+---
+
+### 🩺 Health Check
+
+```
+GET /health
+```
+
 Response:
-"Server running"
+
+```
+Server running
+```
 
 ---
 
-### Create Task
-POST /tasks  
+### 🔐 Authentication
 
-Request body:
+#### Register User
+
+```
+POST /register
+```
+
+Request Body:
+
+```json
 {
-  "title": "Learn React",
-  "description": "Complete basic React concepts"
+  "name": "Swayam",
+  "email": "user@email.com",
+  "password": "123456"
 }
+```
 
 ---
 
-### Get All Tasks
+#### Login
+
+```
+POST /login
+```
+
+Response:
+
+```json
+{
+  "token": "JWT_TOKEN"
+}
+```
+
+---
+
+### ✅ Tasks (Protected Routes)
+
+All routes require:
+
+```
+Authorization: Bearer <token>
+```
+
+---
+
+#### Create Task
+
+```
+POST /tasks
+```
+
+```json
+{
+  "title": "Learn Backend",
+  "description": "Pagination implementation",
+  "status": "todo",
+  "priority": "high"
+}
+```
+
+---
+
+#### Get Tasks (Pagination + Filters)
+
+```
 GET /tasks
+```
 
----
+Query Parameters:
 
-### Update Task
-PUT /tasks/:id  
+| Parameter | Example          | Description        |
+| --------- | ---------------- | ------------------ |
+| page      | `?page=2`        | Page number        |
+| limit     | `?limit=10`      | Tasks per page     |
+| status    | `?status=todo`   | Filter by status   |
+| priority  | `?priority=high` | Filter by priority |
+| search    | `?search=react`  | Search by title    |
+| sort      | `?sort=dueDate`  | Sort field         |
+| order     | `?order=asc`     | asc / desc         |
 
-Request body (any field can be updated):
+Response:
+
+```json
 {
-  "title": "Learn Advanced React",
-  "completed": true
+  "tasks": [],
+  "pagination": {
+    "total": 25,
+    "page": 1,
+    "limit": 10,
+    "pages": 3
+  }
 }
+```
 
 ---
 
-### Delete Task
+#### Update Task
+
+```
+PUT /tasks/:id
+```
+
+---
+
+#### Delete Task
+
+```
 DELETE /tasks/:id
+```
 
 ---
 
-## 🗄️ Database Schema (Task)
+## 🗄️ Database Schema
 
+### User
+
+```js
+{
+  name: String,
+  email: String,
+  password: String
+}
+```
+
+### Task
+
+```js
 {
   title: String,
   description: String,
-  completed: Boolean,
-  createdAt: Date,
-  updatedAt: Date
+  status: "todo" | "in-progress" | "completed",
+  priority: "low" | "medium" | "high",
+  dueDate: Date,
+  user: ObjectId
 }
+```
 
 Timestamps are automatically managed by Mongoose.
 
@@ -100,42 +260,65 @@ Timestamps are automatically managed by Mongoose.
 
 ## ⚙️ Environment Variables
 
-Create a `.env` file in the root directory:
+Create `.env` file:
 
-MONGO_URI=mongodb://127.0.0.1:27017/taskmanager  
+```
+MONGO_URI=your_mongodb_atlas_uri
+JWT_SECRET=your_secret_key
 PORT=5000
-
-.env is ignored by Git for security reasons.
+```
 
 ---
 
-## ▶️ How to Run Locally
+## ▶️ Run Locally
 
-1. Clone the repository
-2. Install dependencies:
-   npm install
-3. Start MongoDB locally
-4. Run the server:
-   node index.js
-5. Server runs at:
-   ${API_BASE_URL}
+1. Clone repository
+
+```
+git clone <repo-url>
+```
+
+2. Install dependencies
+
+```
+npm install
+```
+
+3. Add `.env` file
+
+4. Start server
+
+```
+node index.js
+```
+
+Server runs at:
+
+```
+http://localhost:5000
+```
 
 ---
 
 ## 📈 Project Status
 
-Phase 1 – Completed
+✅ Authentication system
+✅ Protected APIs
+✅ Pagination & filtering
+✅ Production deployment
+✅ MongoDB Atlas integration
 
-- Full CRUD implemented
-- MongoDB persistence
-- Stable API
-- Ready for deployment and authentication extension
+**Current Stage:** Production-Ready Backend API
 
 ---
 
-## 👤 Author
+## 👨‍💻 Author
 
-Swayam Patil  
-AIML Undergraduate | Full-Stack Developer  
+**Swayam Patil**
+AIML Undergraduate | Full-Stack Developer
+
+* MERN Stack Development
+* Backend API Architecture
+* Deployment & Cloud Integration
 
 ---
