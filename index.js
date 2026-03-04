@@ -117,15 +117,12 @@ app.post("/tasks", auth, async (req, res) => {
       user: req.user.userId,
     });
 
-    try {
-      await Activity.create({
-        user: req.user.userId,
-        action: "created_task",
-        task: task._id,
-      });
-    } catch (err) {
-      console.error("Activity log failed:", err);
-    }
+    await Activity.create({
+      user: req.user.userId,
+      action: "created_task",
+      task: task._id,
+      taskTitle: task.title,
+    });
 
     res.status(201).json(task);
   } catch (err) {
@@ -200,11 +197,11 @@ app.put("/tasks/:id", auth, async (req, res) => {
 
     if (!updatedTask)
       return res.status(404).json({ message: "Task not found" });
-
     await Activity.create({
       user: req.user.userId,
       action: "updated_task",
       task: updatedTask._id,
+      taskTitle: updatedTask.title,
     });
 
     res.json(updatedTask);
@@ -228,7 +225,7 @@ app.delete("/tasks/:id", auth, async (req, res) => {
     await Activity.create({
       user: req.user.userId,
       action: "deleted_task",
-      task: deletedTask._id,
+      taskTitle: deletedTask.title,
     });
 
     res.json(deletedTask);
