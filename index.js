@@ -3,17 +3,19 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
 const User = require("./models/User");
 const Task = require("./models/Task");
+const Activity = require("./models/Activity");
 const auth = require("./middleware/auth");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-//  Middleware 
 app.use(express.json());
+
 app.use(
   cors({
     origin: [
@@ -25,13 +27,20 @@ app.use(
   })
 );
 
-//  Database 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+app.use(limiter);
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error(err));
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  });
 
-//  Health Routes 
 app.get("/", (req, res) => {
   res.send("API is live");
 });
@@ -39,8 +48,6 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.send("Server running");
 });
-
-//  AUTH ROUTES 
 
 // Register
 app.post("/register", async (req, res) => {
@@ -61,7 +68,7 @@ app.post("/register", async (req, res) => {
 
     res.json({ message: "User registered successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -81,21 +88,22 @@ app.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      {
+        expiresIn: "7d",
+        issuer: "taskeasy-api",
+      }
     );
 
     res.json({ token });
-  } catch {
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
-
-//  TASK ROUTES (PROTECTED) 
 
 // Create Task
 app.post("/tasks", auth, async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, status, priority, dueDate } = req.body;
 
     if (!title)
       return res.status(400).json({ message: "Title is required" });
@@ -103,29 +111,82 @@ app.post("/tasks", auth, async (req, res) => {
     const task = await Task.create({
       title: title.trim(),
       description: description?.trim() || "",
+      status,
+      priority,
+      dueDate,
       user: req.user.userId,
     });
 
+    try {
+      await Activity.create({
+        user: req.user.userId,
+        action: "created_task",
+        task: task._id,
+      });
+    } catch (err) {
+      console.error("Activity log failed:", err);
+    }
+
     res.status(201).json(task);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Get User Tasks
+
+// Get Tasks (Pagination + Filtering)
 app.get("/tasks", auth, async (req, res) => {
   try {
-    const tasks = await Task.find({
-      user: req.user.userId,
-    }).sort({ createdAt: -1 });
+    const {
+      status,
+      priority,
+      search,
+      page = 1,
+      limit = 10,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query;
 
-    res.json(tasks);
-  } catch {
-    res.status(500).json({ message: "Server error" });
+    const filter = { user: req.user.userId };
+
+    if (status) filter.status = status;
+    if (priority) filter.priority = priority;
+
+    if (search) {
+      filter.title = { $regex: search, $options: "i" };
+    }
+
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.min(Number(limit) || 10, 50);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const sortOptions = {
+      [sort]: order === "asc" ? 1 : -1,
+    };
+
+    const tasks = await Task.find(filter)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNumber);
+
+    const total = await Task.countDocuments(filter);
+
+    res.json({
+      tasks,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        pages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Update Task (User Specific)
+
+// Update Task
 app.put("/tasks/:id", auth, async (req, res) => {
   try {
     const updatedTask = await Task.findOneAndUpdate(
@@ -140,13 +201,20 @@ app.put("/tasks/:id", auth, async (req, res) => {
     if (!updatedTask)
       return res.status(404).json({ message: "Task not found" });
 
+    await Activity.create({
+      user: req.user.userId,
+      action: "updated_task",
+      task: updatedTask._id,
+    });
+
     res.json(updatedTask);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Delete Task (User Specific)
+
+// Delete Task
 app.delete("/tasks/:id", auth, async (req, res) => {
   try {
     const deletedTask = await Task.findOneAndDelete({
@@ -157,13 +225,47 @@ app.delete("/tasks/:id", auth, async (req, res) => {
     if (!deletedTask)
       return res.status(404).json({ message: "Task not found" });
 
+    await Activity.create({
+      user: req.user.userId,
+      action: "deleted_task",
+      task: deletedTask._id,
+    });
+
     res.json(deletedTask);
-  } catch {
-    res.status(500).json({ message: "Server error" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-//  START SERVER 
+
+//  ACTIVITY ROUTE 
+app.get("/activities", auth, async (req, res) => {
+  try {
+    const activities = await Activity.find({
+      user: req.user.userId,
+    })
+      .populate("task", "title")
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    res.json(activities);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+//  GLOBAL ERROR HANDLER 
+
+app.use((err, req, res, next) => {
+  console.error("GLOBAL ERROR:", err);
+
+  res.status(err.status || 500).json({
+    message: err.message || "Internal Server Error",
+  });
+});
+
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
