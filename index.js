@@ -18,16 +18,11 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cookieParser()); // Added to read refresh token cookies
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://task-manager-frontend-psi-umber.vercel.app",
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true, // Crucial for sending cookies
-  })
-);
+app.use(cors({
+  origin: "https://task-manager-frontend-psi-umber.vercel.app", // Your Vercel link
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"]
+}));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -86,12 +81,11 @@ app.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    // Send Refresh Token as HTTP-Only Cookie
+  
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      // Change these lines:
-      secure: process.env.NODE_ENV === "production", // true only in production
-      sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax",
+      secure: true,   // Required for HTTPS (Render has this)
+      sameSite: "None", // Required because Vercel and Render are different domains
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
